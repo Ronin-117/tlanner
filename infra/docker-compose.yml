@@ -1,0 +1,131 @@
+# Tlanner — Base Infrastructure
+# Run with: docker compose -f infra/docker-compose.yml -f infra/docker-compose.dev.yml up
+# Or use: make dev-infra (from root Makefile)
+
+name: tlanner
+
+services:
+
+  # ─── PostgreSQL ──────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: tlanner-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - tlanner-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+
+  # ─── Redis ───────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: tlanner-redis
+    restart: unless-stopped
+    command: redis-server --maxmemory 100mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      - tlanner-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+
+  # ─── RabbitMQ ────────────────────────────────────────────────────────────────
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: tlanner-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - tlanner-net
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+
+  # ─── Qdrant ──────────────────────────────────────────────────────────────────
+  qdrant:
+    image: qdrant/qdrant:v1.9.2
+    container_name: tlanner-qdrant
+    restart: unless-stopped
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - tlanner-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:6333/readyz || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+
+  # ─── MinIO ───────────────────────────────────────────────────────────────────
+  minio:
+    image: minio/minio:latest
+    container_name: tlanner-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio_data:/data
+    networks:
+      - tlanner-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9000/minio/health/live || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+
+# ─── Named Volumes ─────────────────────────────────────────────────────────────
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+  qdrant_data:
+  minio_data:
+
+# ─── Network ───────────────────────────────────────────────────────────────────
+networks:
+  tlanner-net:
+    driver: bridge

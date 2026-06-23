@@ -1,0 +1,29 @@
+# Tlanner — Dev overrides
+# Adds host port bindings so you can connect with local tools
+
+name: tlanner
+
+services:
+
+  postgres:
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  rabbitmq:
+    ports:
+      - "5672:5672"    # AMQP (app connections)
+      - "15672:15672"  # Management UI
+
+  qdrant:
+    ports:
+      - "6333:6333"    # REST API
+      - "6334:6334"    # gRPC
+
+  minio:
+    ports:
+      - "9000:9000"    # S3 API
+      - "9001:9001"    # Web console
