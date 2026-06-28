@@ -45,7 +45,7 @@ logs-rabbit:
 
 .PHONY: psql
 psql: ## Open a psql shell inside the postgres container
-	docker exec -it tlanner-postgres psql -U $${POSTGRES_USER} -d $${POSTGRES_DB}
+	docker exec -it tlanner-postgres psql -U tlanner -d tlanner_db
 
 .PHONY: redis-cli
 redis-cli: ## Open a redis-cli shell
